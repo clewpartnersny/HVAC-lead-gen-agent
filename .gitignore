@@ -1,0 +1,23 @@
+# Secrets / credentials
+.env
+*.env
+service_account.json
+service-account.json
+credentials*.json
+gcp*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+
+# Local state / scratch
+.cache/
+*.log
+local_state.json
+scratch/
