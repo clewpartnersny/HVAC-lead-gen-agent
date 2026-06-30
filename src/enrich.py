@@ -97,7 +97,9 @@ invent an owner name, email, LinkedIn URL, or age."""
 
 class Enricher:
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=CONFIG.anthropic_api_key)
+        # max_retries lets the SDK absorb 429/529s by honoring the API's
+        # retry-after header — the right way to ride out rate limits.
+        self.client = anthropic.Anthropic(api_key=CONFIG.anthropic_api_key, max_retries=8)
         self.model = CONFIG.anthropic_model
 
     @retry(
@@ -127,7 +129,7 @@ class Enricher:
             thinking={"type": "adaptive"},
             output_config={"effort": "low"},
             system=RESEARCH_SYSTEM,
-            tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 4}],
+            tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 3}],
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
             msg = stream.get_final_message()
