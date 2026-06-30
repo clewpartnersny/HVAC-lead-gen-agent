@@ -44,69 +44,93 @@ GitHub Actions (cron)
         Google Sheets (Leads · Needs Review · _agent_state)
 ```
 
-## Setup
+## Run it yourself (default — no service account, no admin)
 
-### 1. Google Cloud service account (Drive/Sheets access)
+This path runs the agent **on your own machine, on demand**, and signs in with
+your own Google account via a browser ("Allow" once, cached after). No
+service-account key, no GitHub secrets, no Google org-policy changes.
 
-1. In the [Google Cloud Console](https://console.cloud.google.com/), create (or
-   pick) a project.
-2. Enable the **Google Sheets API** and **Google Drive API**.
-3. Create a **Service Account**, then create a **JSON key** for it and download it.
-4. **Share both spreadsheets** (the *Organized MSAs* sheet and your output sheet)
-   with the service account's email (`...@...iam.gserviceaccount.com`) — give the
-   output sheet **Editor** access.
-
-### 2. Prepare your sheets
+### 1. Prepare your sheets
 
 - **Organized MSAs sheet:** a tab named `Organized MSAs` (configurable) whose
   rows list metros. The agent auto-detects the metro column (or set
   `MSA_NAME_COLUMN`).
 - **Output sheet:** a tab named `Leads` (configurable) whose **row 1 contains
   your Research Template column headers**. The agent maps its fields onto your
-  columns by fuzzy-matching the headers (see `FIELD_ALIASES` in
-  `src/sheets.py`), so you don't have to match our names exactly. The
-  `Needs Review` and `_agent_state` tabs are created automatically.
+  columns by fuzzy-matching the headers (see `FIELD_ALIASES` in `src/sheets.py`),
+  so you don't have to match our names exactly. The `Needs Review` and
+  `_agent_state` tabs are created automatically.
 
 Grab each spreadsheet's ID from its URL:
 `https://docs.google.com/spreadsheets/d/`**`THIS_IS_THE_ID`**`/edit`.
 
+### 2. Create an OAuth client (one-time, ~3 minutes, not blocked by the key policy)
+
+1. Enable the APIs (if not already): open
+   [Google Sheets API](https://console.cloud.google.com/apis/library/sheets.googleapis.com)
+   → **Enable**, and
+   [Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com)
+   → **Enable**.
+2. Configure the consent screen:
+   [console.cloud.google.com/apis/credentials/consent](https://console.cloud.google.com/apis/credentials/consent)
+   → **User Type: Internal** (since you're on a Workspace domain) → fill app name
+   and your email → **Save**.
+3. Create the client:
+   [console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials)
+   → **Create credentials** → **OAuth client ID** → **Application type: Desktop
+   app** → **Create** → **Download JSON**.
+4. Save that file in the project folder as **`client_secret.json`**.
+
 ### 3. API keys
 
-- **Anthropic** — for qualification (`ANTHROPIC_API_KEY`).
-- **Outscraper** — for Google Maps data (`OUTSCRAPER_API_KEY`), from
+- **Anthropic** — qualification (`ANTHROPIC_API_KEY`).
+- **Outscraper** — Google Maps data (`OUTSCRAPER_API_KEY`), from
   [outscraper.com](https://outscraper.com).
 
-### 4. Run locally (optional, to test)
+### 4. Run it
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env          # fill in keys + sheet IDs
-# put your service-account JSON in service_account.json, or paste it into
-# GOOGLE_SERVICE_ACCOUNT_JSON in .env
-DRY_RUN=1 python main.py      # one MSA, verbose, no sheet writes
+cp .env.example .env          # fill in ANTHROPIC_API_KEY, OUTSCRAPER_API_KEY,
+                              # MSA_SHEET_ID, OUTPUT_SHEET_ID
+
+DRY_RUN=1 python main.py      # first run: a browser opens — sign in & click Allow
+                              # (one MSA, verbose, no sheet writes)
+
+python main.py                # real run: processes MAX_MSAS_PER_RUN metros
 ```
 
-### 5. Deploy to GitHub Actions (24/7)
+The first run pops a browser to authorize and caches the token to `token.json`;
+later runs reuse it silently. Re-run `python main.py` whenever you want another
+batch — it resumes from where it left off.
 
-In the repo: **Settings → Secrets and variables → Actions**, add **Secrets**:
+> Both `client_secret.json` and `token.json` are git-ignored — they never get
+> committed.
 
-| Secret | Value |
-| --- | --- |
-| `ANTHROPIC_API_KEY` | your Anthropic key |
-| `OUTSCRAPER_API_KEY` | your Outscraper key |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | the **entire** service-account JSON (paste as-is) |
-| `MSA_SHEET_ID` | ID of the *Organized MSAs* spreadsheet |
-| `OUTPUT_SHEET_ID` | ID of the output spreadsheet |
+## Later: unattended 24/7 on GitHub Actions
 
-Optionally add **Variables** (non-secret tuning): `MAX_MSAS_PER_RUN`,
-`SEARCH_TERMS`, `MIN_REVENUE_USD`, `MSA_WORKSHEET`, `OUTPUT_WORKSHEET`,
-`ANTHROPIC_MODEL`.
+When you're ready to have it run while your computer is off, switch from OAuth to
+a **service account** and let the included workflow run it on a schedule.
+
+1. Create a service account + JSON key (needs the org's key-creation policy to
+   allow it — see the project chat for the exact admin steps), and **share both
+   sheets** with the service account's email (output sheet = **Editor**).
+2. In the repo: **Settings → Secrets and variables → Actions**, add **Secrets**:
+
+   | Secret | Value |
+   | --- | --- |
+   | `ANTHROPIC_API_KEY` | your Anthropic key |
+   | `OUTSCRAPER_API_KEY` | your Outscraper key |
+   | `GOOGLE_SERVICE_ACCOUNT_JSON` | the **entire** service-account JSON |
+   | `MSA_SHEET_ID` | ID of the *Organized MSAs* spreadsheet |
+   | `OUTPUT_SHEET_ID` | ID of the output spreadsheet |
+
+   Optionally add **Variables** for tuning: `MAX_MSAS_PER_RUN`, `SEARCH_TERMS`,
+   `MIN_REVENUE_USD`, `MSA_WORKSHEET`, `OUTPUT_WORKSHEET`, `ANTHROPIC_MODEL`.
 
 The workflow (`.github/workflows/run-agent.yml`) runs **every 2 hours**, processes
-`MAX_MSAS_PER_RUN` metros, and checkpoints. To go faster, raise
-`MAX_MSAS_PER_RUN` or tighten the cron; to pause, disable the workflow in the
-Actions tab. You can also trigger a manual run (**Run workflow**) and pass
-`dry_run=1` to test without writing.
+`MAX_MSAS_PER_RUN` metros, and checkpoints. Disable it in the Actions tab to
+pause; trigger a manual run with `dry_run=1` to test.
 
 ## Tuning
 

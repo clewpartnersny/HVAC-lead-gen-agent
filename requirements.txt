@@ -2,6 +2,7 @@ anthropic>=0.69
 outscraper>=5.3.0
 gspread>=6.1.2
 google-auth>=2.33.0
+google-auth-oauthlib>=1.2.0
 tenacity>=9.0.0
 python-dotenv>=1.0.1
 pydantic>=2.8.0

@@ -4,6 +4,8 @@
 service_account.json
 service-account.json
 credentials*.json
+client_secret*.json
+token.json
 gcp*.json
 
 # Python

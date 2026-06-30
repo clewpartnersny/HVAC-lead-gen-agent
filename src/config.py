@@ -38,8 +38,12 @@ class Config:
     outscraper_api_key: str = field(default_factory=lambda: os.getenv("OUTSCRAPER_API_KEY", ""))
 
     # --- Google auth ---
+    # Service account (used for unattended 24/7 runs). Optional.
     google_sa_json: str = field(default_factory=lambda: os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", ""))
     google_sa_file: str = field(default_factory=lambda: os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE", ""))
+    # OAuth "sign in with Google" (used for local, run-it-yourself runs).
+    oauth_client_file: str = field(default_factory=lambda: os.getenv("GOOGLE_OAUTH_CLIENT_FILE", "client_secret.json"))
+    oauth_token_file: str = field(default_factory=lambda: os.getenv("GOOGLE_OAUTH_TOKEN_FILE", "token.json"))
 
     # --- Sheets ---
     msa_sheet_id: str = field(default_factory=lambda: os.getenv("MSA_SHEET_ID", ""))
@@ -71,8 +75,8 @@ class Config:
             missing.append("ANTHROPIC_API_KEY")
         if not self.outscraper_api_key:
             missing.append("OUTSCRAPER_API_KEY")
-        if not (self.google_sa_json or self.google_sa_file):
-            missing.append("GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_FILE")
+        # Google auth is validated lazily in SheetsClient (OAuth or service
+        # account), so it is intentionally not required here.
         if not self.msa_sheet_id:
             missing.append("MSA_SHEET_ID")
         if not self.output_sheet_id:

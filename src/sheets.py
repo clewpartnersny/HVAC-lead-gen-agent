@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from datetime import datetime, timezone
 
@@ -75,12 +76,32 @@ class SheetsClient:
 
     @staticmethod
     def _authorize() -> gspread.Client:
+        # 1) Service account, if configured (the unattended / 24/7 path).
         if CONFIG.google_sa_json:
             info = json.loads(CONFIG.google_sa_json)
             creds = Credentials.from_service_account_info(info, scopes=SCOPES)
-        else:
+            return gspread.authorize(creds)
+        if CONFIG.google_sa_file and os.path.exists(CONFIG.google_sa_file):
             creds = Credentials.from_service_account_file(CONFIG.google_sa_file, scopes=SCOPES)
-        return gspread.authorize(creds)
+            return gspread.authorize(creds)
+
+        # 2) OAuth "sign in with Google" (the local, run-it-yourself path).
+        #    First run opens a browser to authorize; the token is then cached in
+        #    GOOGLE_OAUTH_TOKEN_FILE so later runs are non-interactive.
+        if os.path.exists(CONFIG.oauth_client_file):
+            return gspread.oauth(
+                scopes=SCOPES,
+                credentials_filename=CONFIG.oauth_client_file,
+                authorized_user_filename=CONFIG.oauth_token_file,
+            )
+
+        raise RuntimeError(
+            "No Google credentials found.\n"
+            f"For local runs, download an OAuth client and save it as "
+            f"'{CONFIG.oauth_client_file}' (see README → Run it yourself).\n"
+            "For unattended runs, set GOOGLE_SERVICE_ACCOUNT_JSON or "
+            "GOOGLE_SERVICE_ACCOUNT_FILE."
+        )
 
     # --- MSA list -------------------------------------------------------------
     @retry(stop=stop_after_attempt(4), wait=wait_exponential(multiplier=2, min=2, max=20))
