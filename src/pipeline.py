@@ -68,6 +68,11 @@ def run() -> None:
     for msa in pending:
         log.info("=== Processing MSA: %s ===", msa)
         places = _filter_obvious_noise(maps.search_msa(msa))
+        if CONFIG.dry_run:
+            places = places[: CONFIG.dry_run_sample]
+            log.info("DRY_RUN: limiting to %d companies", len(places))
+        elif CONFIG.max_companies_per_msa:
+            places = places[: CONFIG.max_companies_per_msa]
 
         qualified: list[Lead] = []
         review: list[Lead] = []

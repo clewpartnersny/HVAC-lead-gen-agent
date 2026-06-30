@@ -70,6 +70,10 @@ class Config:
     )
     anthropic_model: str = field(default_factory=lambda: os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8"))
     dry_run: bool = field(default_factory=lambda: _bool("DRY_RUN", False))
+    # Companies to qualify per MSA in a dry run (keeps smoke tests fast/cheap).
+    dry_run_sample: int = field(default_factory=lambda: _int("DRY_RUN_SAMPLE", 3))
+    # Cap companies qualified per MSA on real runs (0 = no cap).
+    max_companies_per_msa: int = field(default_factory=lambda: _int("MAX_COMPANIES_PER_MSA", 0))
 
     def validate(self) -> None:
         """Raise a clear error if a required setting is missing."""
