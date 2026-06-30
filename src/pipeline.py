@@ -17,7 +17,8 @@ import logging
 from .config import CONFIG
 from .enrich import Enricher
 from .maps import get_maps_client
-from .models import Lead
+from .models import Lead, _domain
+from .rocketreach import RocketReachClient
 from .sheets import SheetsClient, place_dedupe_keys
 
 log = logging.getLogger(__name__)
@@ -37,11 +38,41 @@ def _filter_obvious_noise(places):
     return kept
 
 
+def _augment_contact(rocket: RocketReachClient, place, qual) -> None:
+    """Fill owner email/LinkedIn (and name/title if missing) from RocketReach."""
+    domain = place.domain or _domain(place.website)
+    contact = rocket.find(
+        company=place.name,
+        domain=domain,
+        first=qual.owner_first_name,
+        last=qual.owner_last_name,
+    )
+    if not contact:
+        return
+    if contact.get("email") and not qual.contact_email:
+        qual.contact_email = contact["email"]
+    if contact.get("linkedin") and not qual.owner_linkedin:
+        qual.owner_linkedin = contact["linkedin"]
+    if contact.get("first") and not qual.owner_first_name:
+        qual.owner_first_name = contact["first"]
+        qual.owner_last_name = contact.get("last", "")
+    if contact.get("title") and not qual.owner_title:
+        qual.owner_title = contact["title"]
+    if contact.get("email"):
+        log.info("RocketReach: found email for %s", place.name)
+
+
 def run() -> None:
     CONFIG.validate()
     sheets = SheetsClient()
     maps = get_maps_client()
     enricher = Enricher()
+    # RocketReach is optional and skipped on dry runs (it consumes credits).
+    rocket = (
+        RocketReachClient()
+        if (CONFIG.rocketreach_api_key and not CONFIG.dry_run)
+        else None
+    )
 
     all_msas = sheets.read_msas()
     if not all_msas:
@@ -88,6 +119,10 @@ def run() -> None:
             except Exception as exc:  # noqa: BLE001 — never let one company kill the run
                 log.warning("Qualification failed for %s: %s", place.name, exc)
                 continue
+
+            # Verified owner email via RocketReach (kept leads only, to save credits).
+            if rocket and qual.verdict in ("qualified", "review"):
+                _augment_contact(rocket, place, qual)
 
             sources = qual.sources or []
             lead = Lead(place=place, qual=qual, sources_text="\n".join(sources))

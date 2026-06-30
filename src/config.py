@@ -39,6 +39,8 @@ class Config:
     serper_api_key: str = field(default_factory=lambda: os.getenv("SERPER_API_KEY", ""))
     outscraper_api_key: str = field(default_factory=lambda: os.getenv("OUTSCRAPER_API_KEY", ""))
     maps_provider: str = field(default_factory=lambda: (os.getenv("MAPS_PROVIDER", "").strip().lower() or "auto"))
+    # RocketReach — owner email lookup. Optional; skipped if unset.
+    rocketreach_api_key: str = field(default_factory=lambda: os.getenv("ROCKETREACH_API_KEY", ""))
 
     # --- Google auth ---
     # Service account (used for unattended 24/7 runs). Optional.

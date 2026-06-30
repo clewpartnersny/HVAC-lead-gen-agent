@@ -87,6 +87,9 @@ Grab each spreadsheet's ID from its URL:
 - **Google Maps data** — set **`SERPER_API_KEY`** ([serper.dev](https://serper.dev),
   uses its `/maps` endpoint) **or** `OUTSCRAPER_API_KEY`
   ([outscraper.com](https://outscraper.com)). `MAPS_PROVIDER=auto` prefers Serper.
+- **RocketReach** *(optional)* — verified owner email lookup
+  (`ROCKETREACH_API_KEY`). When set, qualified/review leads get an owner email
+  (and LinkedIn/title) looked up by name + company. Skipped on dry runs.
 
 ### 4. Run it
 

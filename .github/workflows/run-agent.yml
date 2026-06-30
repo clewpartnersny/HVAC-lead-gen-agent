@@ -44,6 +44,7 @@ jobs:
           SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
           OUTSCRAPER_API_KEY: ${{ secrets.OUTSCRAPER_API_KEY }}
           MAPS_PROVIDER: ${{ vars.MAPS_PROVIDER }}
+          ROCKETREACH_API_KEY: ${{ secrets.ROCKETREACH_API_KEY }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           MSA_SHEET_ID: ${{ secrets.MSA_SHEET_ID }}
           OUTPUT_SHEET_ID: ${{ secrets.OUTPUT_SHEET_ID }}
