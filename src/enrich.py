@@ -15,6 +15,7 @@ conflict, while still grounding the judgment in live web data.
 
 from __future__ import annotations
 
+import json
 import logging
 
 import anthropic
@@ -95,6 +96,43 @@ in the dossier. Leave any field empty if the dossier doesn't establish it — ne
 invent an owner name, email, LinkedIn URL, or age."""
 
 
+# Compact field spec given to the model (replaces the strict grammar schema).
+_SCHEMA_HINT = {
+    "verdict": "one of: qualified | reject | review",
+    "confidence": "number 0.0-1.0",
+    "ownership": "one of: independent | pe_owned | subsidiary | franchise | public | unknown",
+    "ownership_rationale": "string",
+    "parent_or_acquirer": "string ('' if independent/unknown)",
+    "revenue_band": "one of: under_1m | 1m_5m | 5m_10m | 10m_25m | 25m_50m | 50m_plus | unknown",
+    "revenue_estimate": "string e.g. '$8M' or ''",
+    "revenue_rationale": "string",
+    "service_share": "integer 0-100",
+    "construction_share": "integer 0-100",
+    "serves_residential": "boolean",
+    "serves_commercial": "boolean",
+    "employees": "string ('' if unknown)",
+    "locations": "string ('' if unknown)",
+    "year_founded": "string ('' if unknown)",
+    "ppp_loan": "string ('' if unknown)",
+    "owner_first_name": "string ('' if unknown)",
+    "owner_last_name": "string ('' if unknown)",
+    "owner_title": "string ('' if unknown)",
+    "owner_linkedin": "string ('' if unknown)",
+    "owner_age": "string ('' if unknown)",
+    "contact_email": "string ('' if unknown)",
+    "summary": "2-3 sentence string",
+    "sources": "array of URL strings",
+}
+
+
+def _loads_json(text: str) -> dict:
+    """Extract the JSON object from a model response (tolerates fences/prose)."""
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        raise ValueError("no JSON object found in extraction response")
+    return json.loads(text[start:end + 1])
+
+
 class Enricher:
     def __init__(self):
         # max_retries lets the SDK absorb 429/529s by honoring the API's
@@ -144,21 +182,21 @@ class Enricher:
         wait=wait_exponential(multiplier=2, min=4, max=60),
     )
     def _extract(self, dossier: str, place: Place) -> Qualification:
-        resp = self.client.messages.parse(
+        # Ask for plain JSON (not the strict grammar compiler, which 400s on
+        # 'schema too complex' for a model this large) and validate with Pydantic.
+        system = EXTRACT_SYSTEM + (
+            "\n\nReturn ONLY a single JSON object with these fields "
+            "(no markdown, no commentary):\n" + json.dumps(_SCHEMA_HINT)
+        )
+        resp = self.client.messages.create(
             model=self.judgment_model,
             max_tokens=2500,
-            system=EXTRACT_SYSTEM,
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"Company: {place.name}\n\nDossier:\n{dossier}",
-                }
-            ],
-            output_format=Qualification,
+            system=system,
+            messages=[{"role": "user", "content": f"Company: {place.name}\n\nDossier:\n{dossier}"}],
         )
-        if resp.parsed_output is None:
-            raise RuntimeError(f"Could not parse qualification for {place.name}")
-        return resp.parsed_output
+        text = "".join(b.text for b in resp.content if b.type == "text")
+        data = _loads_json(text)
+        return Qualification.model_validate(data)
 
     def qualify(self, place: Place) -> tuple[Qualification, str]:
         """Return (qualification, dossier_text) for one company."""

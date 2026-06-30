@@ -107,6 +107,7 @@ def run() -> None:
 
         qualified: list[Lead] = []
         review: list[Lead] = []
+        errors = 0
 
         for place in places:
             keys = place_dedupe_keys(place)
@@ -117,6 +118,7 @@ def run() -> None:
             try:
                 qual, dossier = enricher.qualify(place)
             except Exception as exc:  # noqa: BLE001 — never let one company kill the run
+                errors += 1
                 log.warning("Qualification failed for %s: %s", place.name, exc)
                 continue
 
@@ -149,7 +151,13 @@ def run() -> None:
         sheets.append_leads(qualified)
         if review and review_tab:
             sheets.append_leads(review, worksheet=review_tab)
-        sheets.mark_msa_done(msa, len(qualified))
-        log.info("MSA %s done: %d qualified, %d to review", msa, len(qualified), len(review))
+
+        # Don't burn a metro if every company errored (rate limits, etc.) —
+        # leave it pending so a later run retries it.
+        if errors and not qualified and not review:
+            log.warning("MSA %s: all %d lookups errored — leaving pending for retry", msa, errors)
+        else:
+            sheets.mark_msa_done(msa, len(qualified))
+            log.info("MSA %s done: %d qualified, %d to review", msa, len(qualified), len(review))
 
     log.info("Run complete.")
