@@ -57,25 +57,34 @@ class RocketReachClient:
             time.sleep(delay)
         return data
 
-    def find(self, company: str, domain: str = "", first: str = "", last: str = "") -> dict:
-        """Return {email, phone, linkedin, first, last, title} (any may be empty)."""
+    def find(self, company: str, domain: str = "", first: str = "", last: str = "", linkedin: str = "") -> dict:
+        """Return {email, phone, linkedin, first, last, title} (any may be empty).
+
+        Strategy: LinkedIn URL lookup if we have one (most accurate); otherwise
+        SEARCH (fuzzy, no credit cost) to resolve a profile id, then look that
+        id up. Avoids the brittle name+employer GET lookup that 404s easily.
+        """
         if not self.api_key or not company:
             return {}
-        cache_key = f"{first}|{last}|{domain or company}".lower()
+        cache_key = f"{first}|{last}|{linkedin}|{domain or company}".lower()
         if cache_key in self._cache:
             return self._cache[cache_key]
 
         result: dict = {}
         try:
-            if first and last:
-                data = self._lookup({"name": f"{first} {last}", "current_employer": company})
-            else:
-                query: dict = {"current_title": OWNER_TITLES}
-                if domain:
-                    query["current_employer_domain"] = [domain]
+            data = None
+            if linkedin:
+                try:
+                    data = self._lookup({"linkedin_url": linkedin})
+                except Exception:  # noqa: BLE001 — fall back to search on a miss
+                    data = None
+
+            if data is None:
+                if first and last:
+                    query = {"name": [f"{first} {last}"], "current_employer": [company]}
                 else:
-                    query["current_employer"] = [company]
-                res = self._search({"query": query, "start": 1, "page_size": 5})
+                    query = {"current_employer": [company], "current_title": OWNER_TITLES}
+                res = self._search({"query": query, "page_size": 5})
                 profiles = res.get("profiles") or []
                 if not profiles:
                     self._cache[cache_key] = {}

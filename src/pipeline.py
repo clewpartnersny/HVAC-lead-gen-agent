@@ -46,6 +46,7 @@ def _augment_contact(rocket: RocketReachClient, place, qual) -> None:
         domain=domain,
         first=qual.owner_first_name,
         last=qual.owner_last_name,
+        linkedin=qual.owner_linkedin,
     )
     if not contact:
         return
