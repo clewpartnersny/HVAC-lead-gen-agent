@@ -49,11 +49,22 @@ The client cares about four things:
 Be skeptical and specific. Cite the URLs you relied on."""
 
 RESEARCH_PROMPT = """\
-Research this HVAC company and write a concise dossier covering: ownership /
-independence (and any acquirer or parent), estimated annual revenue with your
-reasoning, the split between service/maintenance and new-construction work, and
-whether they serve residential, commercial, or both. Note anything that signals
-PE ownership or a roll-up. End with the source URLs you used.
+Research this HVAC company and write a concise dossier. Cover, with sources:
+
+1. Ownership / independence — and any acquirer, parent, platform, or franchise.
+2. Estimated annual revenue (give a figure or tight range) with your reasoning.
+3. Work mix — rough % service/maintenance vs % new-construction.
+4. End markets — residential, commercial, or both.
+5. Firmographics — employee count, number of locations/branches, year founded.
+6. Owner / principal — first and last name, title (Owner/President/etc.),
+   LinkedIn URL, and approximate age IF you can find them.
+7. Best contact email for the business or owner, if published.
+8. PPP loan — check public PPP databases (e.g. FederalPay / ProPublica); if a
+   loan is on record, note the amount and year.
+
+IMPORTANT: Only report owner names, emails, LinkedIn URLs, or ages that you
+actually find in a source. Never guess or fabricate contact details — if you
+can't find something, say it's unknown. End with the source URLs you used.
 
 Company: {name}
 Location: {location}
@@ -76,7 +87,12 @@ assessment. Apply the client's rules strictly:
 - verdict "review" when the dossier is genuinely inconclusive on independence or
   revenue — do not guess "qualified" to be generous.
 
-service_share + construction_share should sum to roughly 100."""
+service_share + construction_share should sum to roughly 100.
+
+Fill the firmographic and owner fields (employees, locations, year_founded,
+ppp_loan, owner name/title/LinkedIn/age, contact_email) ONLY from facts present
+in the dossier. Leave any field empty if the dossier doesn't establish it — never
+invent an owner name, email, LinkedIn URL, or age."""
 
 
 class Enricher:
@@ -105,10 +121,10 @@ class Enricher:
         # Stream to stay well under HTTP timeouts on a long, search-heavy turn.
         with self.client.messages.stream(
             model=self.model,
-            max_tokens=4000,
+            max_tokens=6000,
             thinking={"type": "adaptive"},
             system=RESEARCH_SYSTEM,
-            tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 6}],
+            tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 8}],
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
             msg = stream.get_final_message()
@@ -124,7 +140,7 @@ class Enricher:
     def _extract(self, dossier: str, place: Place) -> Qualification:
         resp = self.client.messages.parse(
             model=self.model,
-            max_tokens=2000,
+            max_tokens=2500,
             system=EXTRACT_SYSTEM,
             messages=[
                 {

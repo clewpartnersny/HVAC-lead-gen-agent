@@ -37,32 +37,27 @@ SCOPES = [
 # The writer picks the first template column whose normalized header matches any
 # alias for a logical field.
 FIELD_ALIASES: dict[str, list[str]] = {
-    "company_name": ["company", "companyname", "name", "business", "businessname"],
-    "website": ["website", "url", "web", "site", "domain"],
-    "phone": ["phone", "phonenumber", "telephone", "tel"],
-    "email": ["email", "emailaddress"],
-    "address": ["address", "streetaddress", "fulladdress"],
+    "company_name": ["companyname", "company", "business", "businessname", "name"],
+    "first_name": ["firstname", "ownerfirstname", "contactfirstname"],
+    "last_name": ["lastname", "ownerlastname", "contactlastname"],
+    "position": ["position", "title", "ownertitle", "role", "jobtitle"],
+    "contact_email": ["contactemail", "email", "emailaddress"],
+    "phone": ["contactphonenumber", "phone", "phonenumber", "telephone", "tel"],
+    "linkedin": ["linkedin", "linkedinurl", "linkedinprofile"],
+    "owner_age": ["ownerage", "age"],
+    "domain": ["companydomain", "domain", "website", "url", "web", "site"],
+    "industry": ["industry", "category", "vertical", "sector"],
+    "customer_type": ["customertype", "customer", "endmarket", "markets", "segment"],
     "city": ["city", "town"],
     "state": ["state", "province"],
-    "zip": ["zip", "zipcode", "postalcode", "postal"],
     "msa": ["msa", "metro", "metroarea", "market", "region"],
-    "google_maps_url": ["googlemapsurl", "mapsurl", "googleurl", "maplink", "googlemaps"],
-    "rating": ["rating", "googlerating", "stars"],
-    "review_count": ["reviews", "reviewcount", "numreviews"],
-    "category": ["category", "type", "googlecategory"],
-    "revenue_band": ["revenue", "revenueband", "estimatedrevenue", "revenueestimate", "size"],
-    "revenue_rationale": ["revenuerationale", "revenuenotes", "revenuereasoning"],
-    "ownership": ["ownership", "ownershipstatus", "independence", "independent", "owner"],
-    "ownership_rationale": ["ownershiprationale", "ownershipnotes", "ownershipreasoning"],
-    "parent_or_acquirer": ["parent", "acquirer", "parentcompany", "owner", "pefirm", "platform"],
-    "service_pct": ["servicepct", "servicepercent", "serviceshare", "service"],
-    "construction_pct": ["constructionpct", "constructionpercent", "constructionshare", "construction"],
-    "residential": ["residential", "res"],
-    "commercial": ["commercial", "comm"],
-    "summary": ["summary", "notes", "description", "overview", "comments"],
-    "confidence": ["confidence", "confidencescore"],
-    "verdict": ["verdict", "status", "decision", "fit"],
-    "sources": ["sources", "source", "citations", "links", "references"],
+    "google_reviews": ["googlereviews", "reviews", "reviewcount", "rating", "numreviews"],
+    "ppp_loan": ["ppploan", "ppp", "pppamount"],
+    "est_revenue": ["estrevenue", "estimatedrevenue", "revenue", "revenueestimate", "estrev", "size"],
+    "employees": ["employees", "employeecount", "headcount", "staff", "numemployees"],
+    "locations": ["locations", "branches", "offices", "numlocations", "sites"],
+    "year_founded": ["yearfounded", "founded", "established", "yearestablished", "founding"],
+    "notes": ["notes", "summary", "description", "overview", "comments"],
 }
 
 
@@ -235,9 +230,9 @@ class SheetsClient:
         keys: set[str] = set()
         for row in rows:
             name = str(row.get(field_to_header.get("company_name", ""), "")).strip()
-            website = str(row.get(field_to_header.get("website", ""), "")).strip()
+            domain = str(row.get(field_to_header.get("domain", ""), "")).strip()
             state = str(row.get(field_to_header.get("state", ""), "")).strip()
-            for k in _company_keys(name, website, state):
+            for k in _company_keys(name, domain, state):
                 keys.add(k)
         log.info("Loaded %d existing dedupe keys from output sheet", len(keys))
         return keys
