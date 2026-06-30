@@ -103,12 +103,30 @@ class SheetsClient:
             "GOOGLE_SERVICE_ACCOUNT_FILE."
         )
 
+    @staticmethod
+    def _ws_or_first(sh, name: str) -> gspread.Worksheet:
+        """Open the named tab, or fall back to the first tab with a warning.
+
+        The configured name is often the spreadsheet's *file* name rather than a
+        tab name, so being forgiving here avoids a confusing crash.
+        """
+        try:
+            return sh.worksheet(name)
+        except gspread.WorksheetNotFound:
+            ws = sh.sheet1
+            log.warning(
+                "Tab %r not found in '%s' — using the first tab %r instead. "
+                "Set MSA_WORKSHEET/OUTPUT_WORKSHEET if that's wrong.",
+                name, sh.title, ws.title,
+            )
+            return ws
+
     # --- MSA list -------------------------------------------------------------
     @retry(stop=stop_after_attempt(4), wait=wait_exponential(multiplier=2, min=2, max=20))
     def read_msas(self) -> list[str]:
         """Return ordered MSA names from the configured MSA sheet/tab."""
         sh = self.gc.open_by_key(CONFIG.msa_sheet_id)
-        ws = sh.worksheet(CONFIG.msa_worksheet)
+        ws = self._ws_or_first(sh, CONFIG.msa_worksheet)
         records = ws.get_all_records()  # list of dicts keyed by header row
         if not records:
             return []
@@ -136,7 +154,7 @@ class SheetsClient:
     # --- Output template ------------------------------------------------------
     def _output_ws(self) -> gspread.Worksheet:
         sh = self.gc.open_by_key(CONFIG.output_sheet_id)
-        return sh.worksheet(CONFIG.output_worksheet)
+        return self._ws_or_first(sh, CONFIG.output_worksheet)
 
     @retry(stop=stop_after_attempt(4), wait=wait_exponential(multiplier=2, min=2, max=20))
     def _headers(self, ws: gspread.Worksheet) -> list[str]:
@@ -189,7 +207,7 @@ class SheetsClient:
         if not leads:
             return
         sh = self.gc.open_by_key(CONFIG.output_sheet_id)
-        ws = sh.worksheet(worksheet or CONFIG.output_worksheet)
+        ws = sh.worksheet(worksheet) if worksheet else self._ws_or_first(sh, CONFIG.output_worksheet)
         headers = self._headers(ws)
         col_map = self._build_column_map(headers)
         rows = []
