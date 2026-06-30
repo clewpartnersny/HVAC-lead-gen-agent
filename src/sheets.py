@@ -124,10 +124,51 @@ class SheetsClient:
     # --- MSA list -------------------------------------------------------------
     @retry(stop=stop_after_attempt(4), wait=wait_exponential(multiplier=2, min=2, max=20))
     def read_msas(self) -> list[str]:
-        """Return ordered MSA names from the configured MSA sheet/tab."""
+        """Return ordered ``"Metro, ST"`` strings across all state tabs.
+
+        Layout (this workbook): one tab per US state, header ``MSAs`` in column A,
+        metros listed below it; an ``Overview`` tab and county columns are ignored.
+        Falls back to a single-tab reader for any other layout.
+        """
         sh = self.gc.open_by_key(CONFIG.msa_sheet_id)
+        msas = self._read_state_tabs(sh)
+        if msas:
+            log.info("Read %d MSAs across state tabs", len(msas))
+            return msas
+        log.info("No state tabs detected; falling back to single-tab reader")
+        return self._read_single_tab(sh)
+
+    @staticmethod
+    def _read_state_tabs(sh) -> list[str]:
+        titles = [ws.title for ws in sh.worksheets()]
+        # One batched read of column A for every tab.
+        resp = sh.values_batch_get([f"'{t}'!A1:A2000" for t in titles])
+        value_ranges = resp.get("valueRanges", [])
+
+        seen, msas = set(), []
+        for title, vr in zip(titles, value_ranges):
+            rows = vr.get("values", [])
+            if not rows:
+                continue
+            header = (rows[0][0].strip().lower() if rows[0] and rows[0][0] else "")
+            if header != "msas":  # skips Overview and any non-data tab
+                continue
+            for r in rows[1:]:
+                value = (r[0].strip() if r and r[0] else "")
+                if not value or value.lower() == "msas":
+                    continue
+                if "(other)" in value.lower():  # skip the catch-all bucket
+                    continue
+                msa = f"{value}, {title}"  # title is the state code (e.g. NY)
+                key = msa.lower()
+                if key not in seen:
+                    seen.add(key)
+                    msas.append(msa)
+        return msas
+
+    def _read_single_tab(self, sh) -> list[str]:
         ws = self._ws_or_first(sh, CONFIG.msa_worksheet)
-        records = ws.get_all_records()  # list of dicts keyed by header row
+        records = ws.get_all_records()
         if not records:
             return []
         headers = list(records[0].keys())
