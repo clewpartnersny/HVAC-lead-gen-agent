@@ -104,8 +104,8 @@ class Enricher:
         retry=retry_if_exception_type(
             (anthropic.RateLimitError, anthropic.InternalServerError, anthropic.APIConnectionError)
         ),
-        stop=stop_after_attempt(4),
-        wait=wait_exponential(multiplier=2, min=4, max=60),
+        stop=stop_after_attempt(2),  # bounded — a stalled research call should skip, not spin
+        wait=wait_exponential(multiplier=2, min=4, max=30),
     )
     def _research(self, place: Place) -> str:
         location = ", ".join(p for p in [place.city, place.state] if p) or place.address or place.msa
@@ -118,13 +118,16 @@ class Enricher:
             rating=place.rating if place.rating is not None else "n/a",
             reviews=place.reviews if place.reviews is not None else "n/a",
         )
-        # Stream to stay well under HTTP timeouts on a long, search-heavy turn.
-        with self.client.messages.stream(
+        # Stream to stay under HTTP timeouts; cap effort/searches so each company
+        # takes ~1-2 min instead of many. A hard timeout skips a stalled lookup.
+        client = self.client.with_options(timeout=180.0)
+        with client.messages.stream(
             model=self.model,
-            max_tokens=6000,
+            max_tokens=4000,
             thinking={"type": "adaptive"},
+            output_config={"effort": "low"},
             system=RESEARCH_SYSTEM,
-            tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 8}],
+            tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 4}],
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
             msg = stream.get_final_message()
