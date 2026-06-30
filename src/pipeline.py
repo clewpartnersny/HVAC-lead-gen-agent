@@ -16,7 +16,7 @@ import logging
 
 from .config import CONFIG
 from .enrich import Enricher
-from .maps import MapsClient
+from .maps import get_maps_client
 from .models import Lead
 from .sheets import SheetsClient, place_dedupe_keys
 
@@ -40,7 +40,7 @@ def _filter_obvious_noise(places):
 def run() -> None:
     CONFIG.validate()
     sheets = SheetsClient()
-    maps = MapsClient()
+    maps = get_maps_client()
     enricher = Enricher()
 
     all_msas = sheets.read_msas()

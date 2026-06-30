@@ -1,5 +1,7 @@
 anthropic>=0.69
-outscraper>=5.3.0
+requests>=2.32.0
+# outscraper is optional — only needed if you use MAPS_PROVIDER=outscraper.
+# Uncomment if so:  outscraper>=5.3.0
 gspread>=6.1.2
 google-auth>=2.33.0
 google-auth-oauthlib>=1.2.0

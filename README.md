@@ -84,8 +84,9 @@ Grab each spreadsheet's ID from its URL:
 ### 3. API keys
 
 - **Anthropic** — qualification (`ANTHROPIC_API_KEY`).
-- **Outscraper** — Google Maps data (`OUTSCRAPER_API_KEY`), from
-  [outscraper.com](https://outscraper.com).
+- **Google Maps data** — set **`SERPER_API_KEY`** ([serper.dev](https://serper.dev),
+  uses its `/maps` endpoint) **or** `OUTSCRAPER_API_KEY`
+  ([outscraper.com](https://outscraper.com)). `MAPS_PROVIDER=auto` prefers Serper.
 
 ### 4. Run it
 
@@ -120,7 +121,7 @@ a **service account** and let the included workflow run it on a schedule.
    | Secret | Value |
    | --- | --- |
    | `ANTHROPIC_API_KEY` | your Anthropic key |
-   | `OUTSCRAPER_API_KEY` | your Outscraper key |
+   | `SERPER_API_KEY` | your Serper key (or `OUTSCRAPER_API_KEY`) |
    | `GOOGLE_SERVICE_ACCOUNT_JSON` | the **entire** service-account JSON |
    | `MSA_SHEET_ID` | ID of the *Organized MSAs* spreadsheet |
    | `OUTPUT_SHEET_ID` | ID of the output spreadsheet |

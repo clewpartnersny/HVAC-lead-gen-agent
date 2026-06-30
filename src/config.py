@@ -35,7 +35,10 @@ def _list(name: str, default: list[str]) -> list[str]:
 class Config:
     # --- API keys ---
     anthropic_api_key: str = field(default_factory=lambda: os.getenv("ANTHROPIC_API_KEY", ""))
+    # Google Maps data provider — set whichever you have; "auto" prefers Serper.
+    serper_api_key: str = field(default_factory=lambda: os.getenv("SERPER_API_KEY", ""))
     outscraper_api_key: str = field(default_factory=lambda: os.getenv("OUTSCRAPER_API_KEY", ""))
+    maps_provider: str = field(default_factory=lambda: (os.getenv("MAPS_PROVIDER", "").strip().lower() or "auto"))
 
     # --- Google auth ---
     # Service account (used for unattended 24/7 runs). Optional.
@@ -73,8 +76,8 @@ class Config:
         missing = []
         if not self.anthropic_api_key:
             missing.append("ANTHROPIC_API_KEY")
-        if not self.outscraper_api_key:
-            missing.append("OUTSCRAPER_API_KEY")
+        if not (self.serper_api_key or self.outscraper_api_key):
+            missing.append("SERPER_API_KEY or OUTSCRAPER_API_KEY")
         # Google auth is validated lazily in SheetsClient (OAuth or service
         # account), so it is intentionally not required here.
         if not self.msa_sheet_id:
