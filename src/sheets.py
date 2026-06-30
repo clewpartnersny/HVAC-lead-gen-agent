@@ -24,7 +24,7 @@ from google.oauth2.service_account import Credentials
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .config import CONFIG
-from .models import Lead
+from .models import Lead, MsaJob
 
 log = logging.getLogger(__name__)
 
@@ -118,29 +118,30 @@ class SheetsClient:
 
     # --- MSA list -------------------------------------------------------------
     @retry(stop=stop_after_attempt(4), wait=wait_exponential(multiplier=2, min=2, max=20))
-    def read_msas(self) -> list[str]:
-        """Return ordered ``"Metro, ST"`` strings across all state tabs.
+    def read_msas(self) -> list[MsaJob]:
+        """Return MsaJob items across all state tabs.
 
         Layout (this workbook): one tab per US state, header ``MSAs`` in column A,
         metros listed below it; an ``Overview`` tab and county columns are ignored.
-        Falls back to a single-tab reader for any other layout.
+        The metro name is kept verbatim as the label; the state code is the tab
+        title. Falls back to a single-tab reader for any other layout.
         """
         sh = self.gc.open_by_key(CONFIG.msa_sheet_id)
-        msas = self._read_state_tabs(sh)
-        if msas:
-            log.info("Read %d MSAs across state tabs", len(msas))
-            return msas
+        jobs = self._read_state_tabs(sh)
+        if jobs:
+            log.info("Read %d MSAs across state tabs", len(jobs))
+            return jobs
         log.info("No state tabs detected; falling back to single-tab reader")
         return self._read_single_tab(sh)
 
     @staticmethod
-    def _read_state_tabs(sh) -> list[str]:
+    def _read_state_tabs(sh) -> list[MsaJob]:
         titles = [ws.title for ws in sh.worksheets()]
         # One batched read of column A for every tab.
         resp = sh.values_batch_get([f"'{t}'!A1:A2000" for t in titles])
         value_ranges = resp.get("valueRanges", [])
 
-        seen, msas = set(), []
+        seen, jobs = set(), []
         for title, vr in zip(titles, value_ranges):
             rows = vr.get("values", [])
             if not rows:
@@ -154,14 +155,13 @@ class SheetsClient:
                     continue
                 if "(other)" in value.lower():  # skip the catch-all bucket
                     continue
-                msa = f"{value}, {title}"  # title is the state code (e.g. NY)
-                key = msa.lower()
-                if key not in seen:
-                    seen.add(key)
-                    msas.append(msa)
-        return msas
+                job = MsaJob(label=value, state=title)  # title is the state code
+                if job.key not in seen:
+                    seen.add(job.key)
+                    jobs.append(job)
+        return jobs
 
-    def _read_single_tab(self, sh) -> list[str]:
+    def _read_single_tab(self, sh) -> list[MsaJob]:
         ws = self._ws_or_first(sh, CONFIG.msa_worksheet)
         records = ws.get_all_records()
         if not records:
@@ -169,13 +169,13 @@ class SheetsClient:
         headers = list(records[0].keys())
         col = self._pick_msa_column(headers)
         log.info("Reading MSAs from column %r", col)
-        seen, msas = set(), []
+        seen, jobs = set(), []
         for row in records:
             value = str(row.get(col, "")).strip()
             if value and value.lower() not in seen:
                 seen.add(value.lower())
-                msas.append(value)
-        return msas
+                jobs.append(MsaJob(label=value))
+        return jobs
 
     @staticmethod
     def _pick_msa_column(headers: list[str]) -> str:

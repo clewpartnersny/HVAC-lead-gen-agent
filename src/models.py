@@ -9,6 +9,26 @@ from pydantic import BaseModel, Field
 
 
 @dataclass
+class MsaJob:
+    """One metro to process.
+
+    ``label`` is the exact name from the Organized MSAs sheet (what goes in the
+    output MSA column); ``query`` appends the state for a precise Maps search.
+    """
+
+    label: str
+    state: str = ""
+
+    @property
+    def query(self) -> str:
+        return f"{self.label}, {self.state}" if self.state else self.label
+
+    @property
+    def key(self) -> str:
+        return self.query.lower()
+
+
+@dataclass
 class Place:
     """A raw business record as returned by the Google Maps scrape."""
 
@@ -159,16 +179,20 @@ class Lead:
         }
 
     def _notes(self) -> str:
+        # Only what isn't already in a dedicated column: reasoning + sources.
         q = self.qual
-        parts = [
-            q.summary,
-            f"Ownership: {q.ownership} — {q.ownership_rationale}",
-            f"Revenue: {_BAND_LABELS.get(q.revenue_band, q.revenue_band)} — {q.revenue_rationale}",
-            f"Work mix: ~{q.service_share}% service / ~{q.construction_share}% construction",
-            f"Confidence: {q.confidence:.2f}",
-        ]
+        parts = [q.summary]
+        indep = f"Independence: {q.ownership}"
+        if q.ownership_rationale:
+            indep += f" — {q.ownership_rationale}"
+        parts.append(indep)
+        if q.service_share or q.construction_share:
+            parts.append(f"Work mix: ~{q.service_share}% service / ~{q.construction_share}% construction")
+        if q.revenue_rationale:
+            parts.append(f"Revenue basis: {q.revenue_rationale}")
         if q.parent_or_acquirer:
             parts.append(f"Parent/acquirer: {q.parent_or_acquirer}")
+        parts.append(f"Confidence: {q.confidence:.2f}")
         if self.sources_text:
             parts.append("Sources:\n" + self.sources_text)
         return "\n".join(parts)

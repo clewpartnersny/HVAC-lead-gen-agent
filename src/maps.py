@@ -103,11 +103,12 @@ class SerperMapsClient:
             msa=msa,
         )
 
-    def search_msa(self, msa: str) -> list[Place]:
+    def search_msa(self, search_in: str, label: str | None = None) -> list[Place]:
+        label = label or search_in
         seen: dict[str, Place] = {}
         max_pages = max(1, math.ceil(CONFIG.results_per_query / self.PER_PAGE))
         for term in CONFIG.search_terms:
-            query = f"{term} in {msa}"
+            query = f"{term} in {search_in}"
             log.info("Maps query: %s", query)
             for page in range(1, max_pages + 1):
                 try:
@@ -118,14 +119,14 @@ class SerperMapsClient:
                 if not rows:
                     break
                 for rec in rows:
-                    place = self._to_place(rec, msa)
+                    place = self._to_place(rec, label)
                     if not place.name:
                         continue
                     key = place.dedupe_key()
                     if key not in seen or (place.website and not seen[key].website):
                         seen[key] = place
         places = list(seen.values())
-        log.info("MSA %s: %d unique places", msa, len(places))
+        log.info("MSA %s: %d unique places", label, len(places))
         return places
 
 
@@ -168,10 +169,11 @@ class OutscraperMapsClient:
             msa=msa,
         )
 
-    def search_msa(self, msa: str) -> list[Place]:
+    def search_msa(self, search_in: str, label: str | None = None) -> list[Place]:
+        label = label or search_in
         seen: dict[str, Place] = {}
         for term in CONFIG.search_terms:
-            query = f"{term} in {msa}"
+            query = f"{term} in {search_in}"
             log.info("Maps query: %s", query)
             try:
                 rows = self._search(query, CONFIG.results_per_query)
@@ -179,14 +181,14 @@ class OutscraperMapsClient:
                 log.warning("Query failed (%s): %s", query, exc)
                 continue
             for rec in rows:
-                place = self._to_place(rec, msa)
+                place = self._to_place(rec, label)
                 if not place.name:
                     continue
                 key = place.dedupe_key()
                 if key not in seen or (place.website and not seen[key].website):
                     seen[key] = place
         places = list(seen.values())
-        log.info("MSA %s: %d unique places", msa, len(places))
+        log.info("MSA %s: %d unique places", label, len(places))
         return places
 
 

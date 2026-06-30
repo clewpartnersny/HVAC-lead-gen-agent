@@ -81,7 +81,7 @@ def run() -> None:
         return
 
     done = sheets.completed_msas()
-    pending = [m for m in all_msas if m.strip().lower() not in done]
+    pending = [j for j in all_msas if j.key not in done]
     log.info("MSAs: %d total, %d already done, %d pending", len(all_msas), len(done), len(pending))
 
     if CONFIG.dry_run:
@@ -97,9 +97,9 @@ def run() -> None:
     existing = set() if CONFIG.dry_run else sheets.existing_keys()
     review_tab = None if CONFIG.dry_run else sheets.ensure_review_ws()
 
-    for msa in pending:
-        log.info("=== Processing MSA: %s ===", msa)
-        places = _filter_obvious_noise(maps.search_msa(msa))
+    for job in pending:
+        log.info("=== Processing MSA: %s ===", job.query)
+        places = _filter_obvious_noise(maps.search_msa(job.query, job.label))
         if CONFIG.dry_run:
             places = places[: CONFIG.dry_run_sample]
             log.info("DRY_RUN: limiting to %d companies", len(places))
@@ -146,7 +146,7 @@ def run() -> None:
 
         if CONFIG.dry_run:
             log.info("DRY_RUN summary for %s: %d qualified, %d review (not written)",
-                     msa, len(qualified), len(review))
+                     job.query, len(qualified), len(review))
             continue
 
         sheets.append_leads(qualified)
@@ -156,9 +156,9 @@ def run() -> None:
         # Don't burn a metro if every company errored (rate limits, etc.) —
         # leave it pending so a later run retries it.
         if errors and not qualified and not review:
-            log.warning("MSA %s: all %d lookups errored — leaving pending for retry", msa, errors)
+            log.warning("MSA %s: all %d lookups errored — leaving pending for retry", job.query, errors)
         else:
-            sheets.mark_msa_done(msa, len(qualified))
-            log.info("MSA %s done: %d qualified, %d to review", msa, len(qualified), len(review))
+            sheets.mark_msa_done(job.query, len(qualified))
+            log.info("MSA %s done: %d qualified, %d to review", job.query, len(qualified), len(review))
 
     log.info("Run complete.")
