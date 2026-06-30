@@ -100,7 +100,8 @@ class Enricher:
         # max_retries lets the SDK absorb 429/529s by honoring the API's
         # retry-after header — the right way to ride out rate limits.
         self.client = anthropic.Anthropic(api_key=CONFIG.anthropic_api_key, max_retries=8)
-        self.model = CONFIG.anthropic_model
+        self.research_model = CONFIG.research_model   # web gathering (e.g. Sonnet)
+        self.judgment_model = CONFIG.anthropic_model  # keep/reject decision (e.g. Opus)
 
     @retry(
         retry=retry_if_exception_type(
@@ -124,7 +125,7 @@ class Enricher:
         # takes ~1-2 min instead of many. A hard timeout skips a stalled lookup.
         client = self.client.with_options(timeout=180.0)
         with client.messages.stream(
-            model=self.model,
+            model=self.research_model,
             max_tokens=4000,
             thinking={"type": "adaptive"},
             output_config={"effort": "low"},
@@ -144,7 +145,7 @@ class Enricher:
     )
     def _extract(self, dossier: str, place: Place) -> Qualification:
         resp = self.client.messages.parse(
-            model=self.model,
+            model=self.judgment_model,
             max_tokens=2500,
             system=EXTRACT_SYSTEM,
             messages=[

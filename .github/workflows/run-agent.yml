@@ -54,6 +54,7 @@ jobs:
           MIN_REVENUE_USD: ${{ vars.MIN_REVENUE_USD }}
           SEARCH_TERMS: ${{ vars.SEARCH_TERMS }}
           ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
+          RESEARCH_MODEL: ${{ vars.RESEARCH_MODEL }}
           MAX_MSAS_PER_RUN: ${{ github.event.inputs.max_msas || vars.MAX_MSAS_PER_RUN }}
           DRY_RUN: ${{ github.event.inputs.dry_run || '0' }}
         run: python main.py

@@ -70,7 +70,10 @@ class Config:
             ["HVAC contractor", "heating and air conditioning", "HVAC service"],
         )
     )
+    # Judgment model (keep/reject decision) — quality matters most here.
     anthropic_model: str = field(default_factory=lambda: os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8"))
+    # Research model (web gathering) — cheaper/faster; lighter on rate limits.
+    research_model: str = field(default_factory=lambda: os.getenv("RESEARCH_MODEL", "claude-sonnet-4-6"))
     dry_run: bool = field(default_factory=lambda: _bool("DRY_RUN", False))
     # Companies to qualify per MSA in a dry run (keeps smoke tests fast/cheap).
     dry_run_sample: int = field(default_factory=lambda: _int("DRY_RUN_SAMPLE", 3))
